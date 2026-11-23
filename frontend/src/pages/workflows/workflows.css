@@ -1,0 +1,19 @@
+.wf-page { padding:clamp(1rem,3vw,2rem); max-width:80rem; margin:auto; color:var(--text-main); }
+.wf-page h1 { font-size:1.75rem; font-weight:700; }
+.wf-page h2 { font-size:1.125rem; font-weight:650; }
+.wf-card { border:1px solid var(--border-subtle); border-radius:.75rem; padding:1.25rem; background:var(--surface-card); }
+.wf-table { width:100%; min-width:36rem; border-collapse:collapse; text-align:left; font-size:.875rem; }
+.wf-table th, .wf-table td { padding:.75rem .875rem; border-bottom:1px solid var(--border-subtle); vertical-align:middle; }
+.wf-table th { background:#f8fafc; color:#334155; font-weight:600; }
+.wf-table tbody tr:last-child td { border-bottom:0; }
+.wf-input { border:1px solid #94a3b8; border-radius:.5rem; min-height:44px; padding:.65rem .75rem; width:100%; min-width:0; font-size:1rem; background:white; color:#0f172a; }
+.wf-input:focus-visible,.wf-primary:focus-visible,.wf-secondary:focus-visible { outline:3px solid #6366f1; outline-offset:2px; }
+.wf-primary,.wf-secondary { min-height:44px; border-radius:.5rem; padding:.65rem 1rem; font-size:.875rem; font-weight:600; cursor:pointer; }
+.wf-primary { background:var(--color-brand-700);color:white; }
+.wf-primary:hover { background:var(--color-brand-800); }
+.wf-secondary { border:1px solid #cbd5e1; background:white; color:#334155; }
+.wf-secondary:hover { background:#f1f5f9; }
+.wf-page button:disabled { opacity:.5;cursor:not-allowed; }
+.wf-page p { overflow-wrap:anywhere; }
+.wf-form { display:grid;gap:1rem; }
+.wf-success { padding:1rem;border-radius:.75rem;color:#166534;background:#f0fdf4; }

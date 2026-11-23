@@ -1,0 +1,25 @@
+[Unit]
+Description=Procesador de respaldos de Gestion Escolar
+After=postgresql.service gestion-escolar.service
+Requires=postgresql.service
+
+[Service]
+User=gestion-escolar
+Group=gestion-escolar
+WorkingDirectory=/opt/gestion-escolar/current/backend
+EnvironmentFile=/etc/gestion-escolar/production.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/gestion-escolar/current/.venv/bin/python manage.py procesar_respaldos
+Restart=on-failure
+RestartSec=5
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/gestion-escolar
+NoNewPrivileges=true
+UMask=0077
+MemoryMax=384M
+
+[Install]
+WantedBy=multi-user.target

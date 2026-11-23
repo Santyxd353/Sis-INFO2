@@ -1,0 +1,25 @@
+[Unit]
+Description=Gestion Escolar API
+After=network.target postgresql.service
+
+[Service]
+User=gestion-escolar
+Group=gestion-escolar
+WorkingDirectory=/opt/gestion-escolar/current/backend
+EnvironmentFile=/etc/gestion-escolar/production.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/gestion-escolar/current/.venv/bin/gunicorn --config gunicorn.conf.py --bind 127.0.0.1:8100 project.wsgi:application
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=35
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/gestion-escolar
+NoNewPrivileges=true
+UMask=0027
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

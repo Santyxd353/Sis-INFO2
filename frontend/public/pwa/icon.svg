@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="EduGestión">
+  <rect width="512" height="512" fill="#185648"/>
+  <path d="M145 183 207 173 250 193V337L207 317 145 328Z" fill="#fff"/>
+  <path d="M367 183 305 173 262 193V337L305 317 367 328Z" fill="#dfede3"/>
+  <g fill="none" stroke="#98bca6" stroke-width="5">
+    <path d="M170 214 204 208 227 219M170 246 204 240 227 251M285 219 308 208 342 214M285 251 308 240 342 246"/>
+  </g>
+  <rect x="225" y="352" width="62" height="10" rx="5" fill="#d6b16c"/>
+</svg>

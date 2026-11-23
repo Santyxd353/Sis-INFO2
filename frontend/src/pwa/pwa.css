@@ -1,0 +1,14 @@
+.pwa-status { position: fixed; left: 1rem; bottom: 1rem; z-index: 36; display: grid; gap: .5rem; width: min(25rem, calc(100vw - 2rem)); max-height: 55dvh; overflow: auto; color: #172a25; font-size: .875rem; line-height: 1.5; }
+.pwa-card, .pwa-notice { margin: 0; padding: 1rem; border: 1px solid #c0d8c8; border-radius: .85rem; background: #fff; box-shadow: 0 8px 28px #0f172a22; }
+.pwa-card p { margin: 0 0 .75rem; }
+.pwa-notice { display: flex; align-items: flex-start; gap: .6rem; background: #fff9eb; border-color: #d6b16c; }
+.pwa-notice svg { flex-shrink: 0; margin-top: .2rem; }
+.pwa-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.pwa-status button { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-height: 44px; padding: .6rem .85rem; border-radius: .5rem; font: inherit; font-weight: 650; cursor: pointer; }
+.pwa-primary { border: 1px solid #185648; background: #185648; color: white; }
+.pwa-primary:hover { background: #123e35; }
+.pwa-secondary { border: 1px solid #cbd5e1; background: white; color: #334155; }
+.pwa-status button:focus-visible { outline: 3px solid #b48a46; outline-offset: 2px; }
+.pwa-status button:disabled { opacity: .65; cursor: wait; }
+.pwa-instructions { margin-top: .75rem; padding-top: .75rem; border-top: 1px solid #dce3dc; }
+@media (max-width: 640px) { .pwa-status { bottom: 5.5rem; left: .75rem; width: calc(100vw - 1.5rem); max-height: 45dvh; } }

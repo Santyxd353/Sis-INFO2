@@ -1,0 +1,165 @@
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { AxiosError } from 'axios'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import QbePanel from './QbePanel'
+import * as api from '../../api/reportes'
+
+vi.mock('../../app/contexts/AuthContext', () => ({ useAuth: () => ({ user: null }) }))
+vi.mock('../../api/reportes', () => ({ catalogoQbe: vi.fn(), definicionesQbe: vi.fn(), crearDefinicionQbe: vi.fn(), actualizarDefinicionQbe: vi.fn(), previsualizarQbe: vi.fn(), previsualizarQbeLibre: vi.fn(), exportarQbe: vi.fn(), guardarNombreQbe: vi.fn(), archivarDefinicionQbe: vi.fn() }))
+
+const respuesta = (data: unknown) => ({ data }) as never
+const fuente = { codigo: 'ESTUDIANTES', etiqueta: 'Estudiantes', columnas: [{ campo: 'nombre', etiqueta: 'Nombre', tipo: 'texto' }], filtros: [{ campo: 'nombre', etiqueta: 'Nombre', tipo: 'texto', operadores: ['eq', 'in'] }], ordenables: ['nombre'] }
+
+describe('constructor QBE', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    vi.mocked(api.catalogoQbe).mockResolvedValue(respuesta({ results: [fuente] }))
+    vi.mocked(api.definicionesQbe).mockResolvedValue(respuesta({ results: [] }))
+  })
+  it('cambia fuentes y utiliza opciones y columnas del catálogo', async () => {
+    const genero = { campo: 'genero', etiqueta: 'Género', tipo: 'texto', control: 'enumeracion', opciones: [{ valor: 'M', etiqueta: 'Masculino' }, { valor: 'F', etiqueta: 'Femenino' }], operadores: ['eq', 'ne', 'isnull', 'notnull', 'in'] }
+    const docente = { codigo: 'DOCENTES', etiqueta: 'Personal docente', columnas: [{ campo: 'nombre_completo', etiqueta: 'Nombre completo', tipo: 'texto' }, { campo: 'ci', etiqueta: 'Documento de identidad (CI)', tipo: 'texto', sensible: true }, { campo: 'genero', etiqueta: 'Género', tipo: 'texto' }], predeterminadas: ['nombre_completo'], filtros: [genero], ordenables: [] }
+    const admin = { ...docente, codigo: 'PERSONAL_ADMINISTRATIVO', etiqueta: 'Personal administrativo', columnas: [{ campo: 'puesto', etiqueta: 'Puesto', tipo: 'texto' }], predeterminadas: ['puesto'], filtros: [] }
+    vi.mocked(api.catalogoQbe).mockResolvedValue(respuesta({ results: [fuente, docente, admin] }))
+    render(<QbePanel />)
+    await screen.findByText('Estudiantes')
+    fireEvent.click(screen.getByText('Añadir condición'))
+    fireEvent.change(screen.getByLabelText('¿Sobre qué información desea generar el reporte?'), { target: { value: 'DOCENTES' } })
+    expect(screen.queryByLabelText('Campo de condición')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre completo')).toBeChecked()
+    expect(screen.getByLabelText(/Documento de identidad/)).not.toBeChecked()
+    fireEvent.click(screen.getByText('Añadir condición'))
+    expect(screen.getByLabelText('Valor').tagName).toBe('SELECT')
+    expect(screen.getByRole('option', { name: 'Masculino' })).toHaveValue('M')
+    fireEvent.change(screen.getByLabelText('¿Sobre qué información desea generar el reporte?'), { target: { value: 'PERSONAL_ADMINISTRATIVO' } })
+    expect(screen.getByLabelText('Puesto')).toBeChecked()
+    expect(screen.queryByLabelText('Nombre completo')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Campo de condición')).not.toBeInTheDocument()
+  })
+  it('selecciona puestos del catálogo y limpia el filtro al cambiar de fuente', async () => {
+    const admin = { codigo: 'PERSONAL_ADMINISTRATIVO', etiqueta: 'Personal administrativo', columnas: [{ campo: 'puesto', etiqueta: 'Puesto', tipo: 'texto' }], predeterminadas: ['puesto'], filtros: [{ campo: 'puesto', etiqueta: 'Puesto', tipo: 'entero', control: 'enumeracion', operadores: ['eq', 'ne', 'in', 'isnull', 'notnull'], opciones: [{ valor: '2', etiqueta: 'Director' }, { valor: '7', etiqueta: 'Secretaría' }] }], ordenables: ['puesto'] }
+    vi.mocked(api.catalogoQbe).mockResolvedValue(respuesta({ results: [fuente, admin] }))
+    vi.mocked(api.previsualizarQbeLibre).mockResolvedValue(respuesta({ cantidad: 0, columnas: [], filas: [] }))
+    render(<QbePanel />)
+    await screen.findByText('Estudiantes')
+    fireEvent.change(screen.getByLabelText('¿Sobre qué información desea generar el reporte?'), { target: { value: admin.codigo } })
+    fireEvent.click(screen.getByText('Añadir condición'))
+    const valor = screen.getByLabelText('Valor') as HTMLSelectElement
+    expect(valor.tagName).toBe('SELECT')
+    expect(screen.getByRole('option', { name: 'Director' })).toHaveValue('2')
+    fireEvent.change(screen.getByLabelText('Operador de condición'), { target: { value: 'in' } })
+    const multiple = screen.getByLabelText('Valor') as HTMLSelectElement
+    expect(multiple.multiple).toBe(true)
+    for (const opcion of Array.from(multiple.options)) opcion.selected = true
+    fireEvent.change(multiple)
+    fireEvent.click(screen.getByText('Vista previa sin guardar'))
+    await waitFor(() => expect(api.previsualizarQbeLibre).toHaveBeenCalled())
+    expect(vi.mocked(api.previsualizarQbeLibre).mock.calls[0][1].condiciones).toMatchObject({ condiciones: [{ campo: 'puesto', operador: 'in', valor: [2, 7] }] })
+    fireEvent.change(screen.getByLabelText('¿Sobre qué información desea generar el reporte?'), { target: { value: fuente.codigo } })
+    expect(screen.queryByLabelText('Campo de condición')).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Director' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'DOCENTES' })).not.toBeInTheDocument()
+  })
+  it('mantiene error de segunda condición al eliminar la primera', async () => {
+    vi.mocked(api.crearDefinicionQbe).mockRejectedValue(new AxiosError('error', '400', undefined, undefined, { status: 400, data: { especificacion: { condiciones: { condiciones: [{}, { valor: ['Valor inválido'] }] } } }, headers: {}, statusText: 'Bad Request', config: {} as never }))
+    render(<QbePanel />)
+    await screen.findByText('Estudiantes')
+    fireEvent.click(screen.getByText('Añadir condición'))
+    fireEvent.click(screen.getByText('Añadir condición'))
+    const inputs = screen.getAllByLabelText('Valor')
+    fireEvent.change(inputs[0], { target: { value: 'uno' } })
+    fireEvent.change(inputs[1], { target: { value: 'dos' } })
+    fireEvent.click(screen.getByText('Vista previa'))
+    await screen.findByText('Valor inválido')
+    const filas = screen.getAllByText('Quitar').map((boton) => boton.parentElement!)
+    expect(within(filas[0]).queryByText('Valor inválido')).not.toBeInTheDocument()
+    expect(within(filas[1]).getByText('Valor inválido')).toBeInTheDocument()
+    fireEvent.click(screen.getAllByText('Quitar')[0])
+    expect(screen.getByLabelText('Valor')).toHaveValue('dos')
+    expect(screen.getByText('Valor inválido')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: 'corregido' } })
+    expect(screen.queryByText('Valor inválido')).not.toBeInTheDocument()
+  })
+  it('envía lista tipada con AND y bloquea la condición 11', async () => {
+    vi.mocked(api.crearDefinicionQbe).mockResolvedValue(respuesta({ id: 1, codigo_fuente: 'ESTUDIANTES' }))
+    vi.mocked(api.previsualizarQbe).mockResolvedValue(respuesta({ cantidad: 0, columnas: [], filas: [], limite_alcanzado: false }))
+    render(<QbePanel />)
+    await screen.findByText('Estudiantes')
+    fireEvent.click(screen.getByText('Añadir condición'))
+    fireEvent.change(screen.getByLabelText('Operador de condición'), { target: { value: 'in' } })
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: 'uno, dos' } })
+    fireEvent.click(screen.getByText('Vista previa'))
+    await waitFor(() => expect(api.crearDefinicionQbe).toHaveBeenCalled())
+    expect(vi.mocked(api.crearDefinicionQbe).mock.calls[0][0].especificacion.condiciones).toEqual({ id: expect.any(String), logica: 'AND', condiciones: [{ id: expect.any(String), campo: 'nombre', operador: 'in', valor: ['uno', 'dos'] }] })
+    for (let i = 0; i < 9; i++) fireEvent.click(screen.getByText('Añadir condición'))
+    expect(screen.getByText('Añadir condición')).toBeDisabled()
+    expect(screen.getAllByLabelText('Campo de condición')).toHaveLength(10)
+  })
+  it('muestra error de permisos del catálogo sin exponer detalles técnicos', async () => {
+    vi.mocked(api.catalogoQbe).mockRejectedValue(new AxiosError('error', '403', undefined, undefined, { status: 403, data: {}, headers: {}, statusText: 'Forbidden', config: {} as never }))
+    render(<QbePanel />)
+    expect(await screen.findByText('No tiene permiso para este reporte.')).toBeInTheDocument()
+  })
+  it('presenta errores de campo, operador y columnas en sus controles', async () => {
+    vi.mocked(api.crearDefinicionQbe).mockRejectedValue(new AxiosError('error', '400', undefined, undefined, { status: 400, data: { especificacion: { columnas: ['Columnas inválidas'], condiciones: { condiciones: [{ campo: ['Campo inválido'], operador: ['Operador inválido'] }] } } }, headers: {}, statusText: 'Bad Request', config: {} as never }))
+    render(<QbePanel />)
+    await screen.findByText('Estudiantes')
+    fireEvent.click(screen.getByText('Añadir condición'))
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: 'dato' } })
+    fireEvent.click(screen.getByText('Vista previa'))
+    await screen.findByText('Campo inválido')
+    expect(screen.getByText('Operador inválido')).toBeInTheDocument()
+    expect(within(screen.getByRole('group', { name: 'Columnas' })).getByText('Columnas inválidas')).toBeInTheDocument()
+  })
+  it('muestra el error general sin asociarlo al valor', async () => {
+    vi.mocked(api.crearDefinicionQbe).mockRejectedValue(new AxiosError('error', '400', undefined, undefined, { status: 400, data: { detail: 'No fue posible generar el reporte.' }, headers: {}, statusText: 'Bad Request', config: {} as never }))
+    render(<QbePanel />)
+    await screen.findByText('Estudiantes')
+    fireEvent.click(screen.getByText('Añadir condición'))
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: 'dato' } })
+    fireEvent.click(screen.getByText('Vista previa'))
+    expect(await screen.findByText('No fue posible generar el reporte.')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: 'otro' } })
+    expect(screen.getByText('No fue posible generar el reporte.')).toBeInTheDocument()
+  })
+  it('construye grupo OR y ordenamiento con identidades estables', async () => {
+    vi.mocked(api.previsualizarQbeLibre).mockResolvedValue(respuesta({ cantidad: 0, columnas: [], filas: [] }))
+    render(<QbePanel />)
+    await screen.findByText('Estudiantes')
+    fireEvent.change(screen.getByLabelText('Operador grupo principal'), { target: { value: 'OR' } })
+    fireEvent.click(screen.getByText('Añadir grupo'))
+    fireEvent.click(screen.getByText('Añadir condición'))
+    fireEvent.change(screen.getByLabelText('Grupo de condición'), { target: { value: screen.getByRole('option', { name: 'Grupo 1' }).getAttribute('value') } })
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: 'Prueba' } })
+    fireEvent.click(screen.getByText('Añadir orden'))
+    fireEvent.change(screen.getByLabelText('Dirección orden 1'), { target: { value: 'desc' } })
+    fireEvent.click(screen.getByText('Vista previa sin guardar'))
+    await waitFor(() => expect(api.previsualizarQbeLibre).toHaveBeenCalled())
+    const spec = vi.mocked(api.previsualizarQbeLibre).mock.calls[0][1]
+    expect(spec.condiciones).toEqual({ id: expect.any(String), logica: 'OR', condiciones: [{ id: expect.any(String), logica: 'AND', condiciones: [{ id: expect.any(String), campo: 'nombre', operador: 'eq', valor: 'Prueba' }] }] })
+    expect(spec.orden).toEqual([{ campo: 'nombre', direccion: 'desc' }])
+  })
+  it('guarda y carga una definición explícita', async () => {
+    vi.mocked(api.crearDefinicionQbe).mockImplementation(async (payload) => respuesta({ id: 42, ...payload }))
+    render(<QbePanel />)
+    await screen.findByText('Estudiantes')
+    fireEvent.change(screen.getByLabelText('Nombre de definición'), { target: { value: 'Mi consulta' } })
+    fireEvent.click(screen.getByText('Guardar definición'))
+    expect(await screen.findByText('Definición guardada.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Definición guardada')).toHaveValue('42')
+    fireEvent.change(screen.getByLabelText('Definición guardada'), { target: { value: '42' } })
+    expect(screen.getByLabelText('Nombre de definición')).toHaveValue('Mi consulta')
+  })
+  it('asocia al identificador de la condición el error devuelto por el servidor', async () => {
+    vi.mocked(api.crearDefinicionQbe).mockImplementation(async (payload) => {
+      const grupo = payload.especificacion.condiciones as { condiciones: Array<{ id: string }> }
+      throw new AxiosError('error', '400', undefined, undefined, { status: 400, data: { especificacion: { [grupo.condiciones[0].id]: ['Condición inválida'] } }, headers: {}, statusText: 'Bad Request', config: {} as never })
+    })
+    render(<QbePanel />)
+    await screen.findByText('Estudiantes')
+    fireEvent.click(screen.getByText('Añadir condición'))
+    fireEvent.change(screen.getByLabelText('Valor'), { target: { value: 'dato' } })
+    fireEvent.click(screen.getByText('Vista previa'))
+    expect(await screen.findByText('Condición inválida')).toBeInTheDocument()
+  })
+})
